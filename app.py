@@ -1,85 +1,94 @@
-import sqlite3
-import pandas as pd
 import streamlit as st
-import matplotlib.pyplot as plt
-import seaborn as sns
+import datetime
 
-# Fungsi untuk membuat koneksi ke database SQLite
-def create_connection():
-    conn = sqlite3.connect('subscriptions.db')
-    return conn
+# Kelas Subscription
+class Subscription:
+    def __init__(self, package, start_date, end_date):
+        self.package = package
+        self.start_date = start_date
+        self.end_date = end_date
+        self.status = "active"
 
-# Fungsi untuk membuat tabel subscriptions jika belum ada
-def create_table():
-    conn = create_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS subscriptions (
-            subscription_id INTEGER PRIMARY KEY,
-            customer_name TEXT NOT NULL,
-            customer_email TEXT NOT NULL,
-            subscription_type TEXT NOT NULL,
-            status TEXT NOT NULL,
-            start_date TEXT NOT NULL,
-            end_date TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    def renew(self):
+        if self.package == "monthly":
+            self.end_date = self.end_date + datetime.timedelta(days=30)
+        elif self.package == "yearly":
+            self.end_date = self.end_date + datetime.timedelta(days=365)
+        self.status = "active"
+        return f"Subscription renewed until {self.end_date}"
 
-# Fungsi untuk menyisipkan data ke dalam tabel subscriptions
-def insert_subscription(customer_name, customer_email, subscription_type, status, start_date, end_date):
-    conn = create_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO subscriptions (customer_name, customer_email, subscription_type, status, start_date, end_date)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (customer_name, customer_email, subscription_type, status, start_date, end_date))
-    conn.commit()
-    conn.close()
+    def cancel(self):
+        self.status = "cancelled"
+        return "Subscription cancelled."
 
-# Fungsi untuk mengambil data subscription dari database
-def get_subscription_data():
-    conn = create_connection()
-    query = '''
-    SELECT status, COUNT(*) as count
-    FROM subscriptions
-    GROUP BY status
-    '''
-    df = pd.read_sql_query(query, conn)
-    conn.close()
-    return df
+    def is_active(self):
+        today = datetime.date.today()
+        if today <= self.end_date and self.status == "active":
+            return True
+        return False
 
-# Fungsi utama untuk menjalankan aplikasi Streamlit
-def run_streamlit_app():
-    st.title("Subscription Status Dashboard")
+# Kelas User
+class User:
+    def __init__(self, name, email):
+        self.name = name
+        self.email = email
+        self.subscription = None
 
-    # Tampilkan data subscription
-    st.write("## Subscription Data")
-    data = get_subscription_data()
-    st.dataframe(data)
+    def subscribe(self, package):
+        start_date = datetime.date.today()
+        if package == "monthly":
+            end_date = start_date + datetime.timedelta(days=30)
+        elif package == "yearly":
+            end_date = start_date + datetime.timedelta(days=365)
+        self.subscription = Subscription(package, start_date, end_date)
+        return f"{self.name} subscribed to {package} package from {start_date} to {end_date}"
 
-    # Visualisasi data menggunakan grafik batang
-    st.write("## Subscription Status Visualization")
-    fig, ax = plt.subplots()
-    sns.barplot(data=data, x='status', y='count', ax=ax)
-    st.pyplot(fig)
+    def check_subscription(self):
+        if self.subscription and self.subscription.is_active():
+            return f"Your {self.subscription.package} subscription is active until {self.subscription.end_date}."
+        else:
+            return "No active subscription or subscription has expired."
 
-    # Form untuk menambahkan subscription baru
-    st.write("## Add New Subscription")
-    with st.form(key='subscription_form'):
-        customer_name = st.text_input('Customer Name')
-        customer_email = st.text_input('Customer Email')
-        subscription_type = st.selectbox('Subscription Type', ['Basic', 'Standard', 'Premium'])
-        status = st.selectbox('Status', ['Ongoing', 'Cancelled', 'Unpaid'])
-        start_date = st.date_input('Start Date')
-        end_date = st.date_input('End Date', help="Leave empty for ongoing subscriptions")
-        submit_button = st.form_submit_button(label='Add Subscription')
+    def change_subscription(self, new_package):
+        if self.subscription:
+            self.subscription.cancel()
+        return self.subscribe(new_package)
 
-        if submit_button:
-            insert_subscription(customer_name, customer_email, subscription_type, status, str(start_date), str(end_date))
-            st.success("Subscription added successfully!")
+    def cancel_subscription(self):
+        if self.subscription:
+            self.subscription.cancel()
+            return "Your subscription has been cancelled."
+
+# Streamlit Interface
+def main():
+    st.title("Subscription Management System")
+
+    # Form for user input
+    name = st.text_input("Enter your name:")
+    email = st.text_input("Enter your email:")
+    action = st.selectbox("Choose an action", ["Subscribe", "Check Subscription", "Change Subscription", "Cancel Subscription"])
+
+    # Initialize user instance
+    if name and email:
+        user = User(name, email)
+
+    if action == "Subscribe":
+        package = st.selectbox("Choose a subscription package", ["monthly", "yearly"])
+        if st.button("Subscribe"):
+            st.write(user.subscribe(package))
+
+    elif action == "Check Subscription":
+        if st.button("Check Subscription Status"):
+            st.write(user.check_subscription())
+
+    elif action == "Change Subscription":
+        new_package = st.selectbox("Choose a new subscription package", ["monthly", "yearly"])
+        if st.button("Change Subscription"):
+            st.write(user.change_subscription(new_package))
+
+    elif action == "Cancel Subscription":
+        if st.button("Cancel Subscription"):
+            st.write(user.cancel_subscription())
 
 if __name__ == "__main__":
-    create_table()  # Pastikan tabel sudah ada
-    run_streamlit_app()
+    main()
