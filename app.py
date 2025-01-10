@@ -90,8 +90,13 @@ def main():
                     st.error(f"Failed to cancel the subscription for {user_name}.")
             
             # Opsi untuk menghapus langganan
-            if st.button("Delete User"):
-                if st.confirm(f"Are you sure you want to delete the subscription for {user_name}? This action cannot be undone."):
+            delete_confirmation = st.radio(
+                "Do you want to delete your subscription?",
+                ("No", "Yes")
+            )
+
+            if delete_confirmation == "Yes":
+                if st.button("Delete User"):
                     df = delete_user(df, user_name)
                     st.success(f"User {user_name} has been deleted.")
         
