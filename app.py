@@ -46,6 +46,12 @@ def cancel_subscription(df, user_name):
         return True
     return False
 
+# Fungsi untuk menghapus pengguna dari dataset
+def delete_user(df, user_name):
+    df = df[df["user_name"] != user_name]
+    save_data(df)
+    return df
+
 def main():
     st.title("Subscription Management System with Dataset")
 
@@ -82,6 +88,12 @@ def main():
                     st.success(f"Subscription for {user_name} has been cancelled.")
                 else:
                     st.error(f"Failed to cancel the subscription for {user_name}.")
+            
+            # Opsi untuk menghapus langganan
+            if st.button("Delete User"):
+                if st.confirm(f"Are you sure you want to delete the subscription for {user_name}? This action cannot be undone."):
+                    df = delete_user(df, user_name)
+                    st.success(f"User {user_name} has been deleted.")
         
         else:
             st.warning(f"No active subscription found for {user_name}.")
@@ -104,6 +116,8 @@ def main():
                 df = pd.concat([df, new_subscription], ignore_index=True)
                 save_data(df)
                 st.success(f"New subscription created for {user_name} with {plan_type} plan.")
+        
+        # Menampilkan tabel langganan
         st.write(df)
 
 if __name__ == "__main__":
