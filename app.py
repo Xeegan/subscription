@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import datetime
-import plotly.express as px
 
 # Fungsi untuk membaca dataset langganan
 def load_data():
@@ -52,19 +51,6 @@ def delete_user(df, user_name):
     df = df[df["user_name"] != user_name]
     save_data(df)
     return df
-
-# Fungsi untuk menghasilkan grafik langganan dengan Plotly
-def plot_subscription_trends(df):
-    # Menghitung jumlah langganan aktif per bulan
-    df['start_date'] = pd.to_datetime(df['start_date'])
-    df['month'] = df['start_date'].dt.to_period('M')
-    
-    active_subscriptions = df[df['is_active'] == True].groupby('month').size().reset_index(name='active_count')
-
-    # Membuat grafik dengan Plotly
-    fig = px.line(active_subscriptions, x='month', y='active_count', title="Subscription Trends Over Time", markers=True)
-    fig.update_layout(xaxis_title="Month", yaxis_title="Number of Active Subscriptions")
-    st.plotly_chart(fig)
 
 def main():
     st.title("Subscription Management System with Dataset")
@@ -138,10 +124,6 @@ def main():
         
         # Menampilkan tabel langganan
         st.write(df)
-        
-        # Menampilkan grafik langganan
-        st.subheader("Subscription Trends")
-        plot_subscription_trends(df)
 
 if __name__ == "__main__":
     main()
