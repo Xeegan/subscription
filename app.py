@@ -1,30 +1,4 @@
-[09:36, 21/01/2025] Rangga: import streamlit as st
-import pandas as pd
-import datetime
-import hashlib
-
-# Fungsi untuk membaca dataset langganan
-def load_data():
-    try:
-        df = pd.read_csv("subscriptions.csv")
-        return df
-    except FileNotFoundError:
-        # Jika file tidak ada, buat dataset kosong
-        return pd.DataFrame(columns=["id", "user_name", "plan_type", "start_date", "end_date", "is_active", "role"])
-
-# Fungsi untuk membaca dataset transaksi
-def load_transactions():
-    try:
-        df = pd.read_csv("transactions.csv")
-        return df
-    except FileNotFoundError:
-        # Jika file tidak ada, buat dataset kosong
-        return pd.DataFrame(columns=["id", "user_name", "action", "timestamp", "details"])
-
-# Fungsi untuk menyimpan data ke dalam dataset
-def s…
-[09:36, 21/01/2025] Rangga: complex 2 (error pandas ketika create subscription)
-[11:10, 21/01/2025] Rangga: import streamlit as st
+import streamlit as st
 import pandas as pd
 import datetime
 import hashlib
@@ -258,4 +232,4 @@ def main():
                     st.error("Please enter a user name to delete.")
 
 if _name_ == "_main_":
-    main(
+    main()
