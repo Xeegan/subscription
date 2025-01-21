@@ -45,7 +45,7 @@ def cancel_subscription(df, user_name):
         return True
     return False
 
-# Fungsi untuk menghapus pengguna dari dataset
+# Fungsi untuk menghapus pengguna dari dataset (untuk admin)
 def delete_user(df, user_name):
     df = df[df["user_name"] != user_name]
     save_data(df)
@@ -111,12 +111,6 @@ def main():
                     else:
                         st.error(f"Failed to cancel the subscription for {user_name}.")
 
-                delete_confirmation = st.radio("Do you want to delete your subscription?", ("No", "Yes"))
-                if delete_confirmation == "Yes":
-                    if st.button("Delete User"):
-                        df = delete_user(df, user_name)
-                        st.success(f"User {user_name} has been deleted.")
-
             else:
                 st.warning(f"No active subscription found for {user_name}.")
 
@@ -144,6 +138,14 @@ def main():
 
         analyze_data(df)
         notify_expiring_subscriptions(df)
+
+        delete_user_name = st.text_input("Enter the name of the user to delete:")
+        if st.button("Delete User"):
+            if delete_user_name:
+                df = delete_user(df, delete_user_name)
+                st.success(f"User {delete_user_name} has been deleted.")
+            else:
+                st.error("Please enter a valid user name to delete.")
 
 if __name__ == "__main__":
     main()
