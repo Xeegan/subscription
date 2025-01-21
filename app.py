@@ -30,19 +30,23 @@ def save_users(users):
 # Fungsi untuk mencatat transaksi
 def log_transaction(user_name, action, details):
     try:
-        transactions = pd.read_csv("transactions.csv")
-    except FileNotFoundError:
-        transactions = pd.DataFrame(columns=["id", "user_name", "action", "timestamp", "details"])
+        # Menangani file kosong atau tidak ada
+        try:
+            transactions = pd.read_csv("transactions.csv")
+        except FileNotFoundError:
+            transactions = pd.DataFrame(columns=["id", "user_name", "action", "timestamp", "details"])
 
-    new_transaction = pd.DataFrame({
-        "id": [len(transactions) + 1],
-        "user_name": [user_name],
-        "action": [action],
-        "timestamp": [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
-        "details": [details]
-    })
-    transactions = pd.concat([transactions, new_transaction], ignore_index=True)
-    transactions.to_csv("transactions.csv", index=False)
+        new_transaction = pd.DataFrame({
+            "id": [len(transactions) + 1],
+            "user_name": [user_name],
+            "action": [action],
+            "timestamp": [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
+            "details": [details]
+        })
+        transactions = pd.concat([transactions, new_transaction], ignore_index=True)
+        transactions.to_csv("transactions.csv", index=False)
+    except Exception as e:
+        st.error(f"Error logging transaction: {str(e)}")
 
 # Fungsi untuk hashing password
 def hash_password(password):
@@ -75,7 +79,9 @@ def login_user(users, user_name, password):
 def check_status(row):
     today = datetime.datetime.now()
     end_date = datetime.datetime.strptime(row["end_date"], "%Y-%m-%d")
-    return today <= end_date
+    if today > end_date:
+        return False
+    return True
 
 # Fungsi untuk menganalisis data langganan
 def analyze_data(df):
@@ -106,30 +112,6 @@ def analyze_data(df):
         st.write(expiring_soon[["user_name", "plan_type", "end_date"]])
     else:
         st.write("No subscriptions expiring within the next 7 days.")
-
-# Fungsi untuk memperbarui langganan
-def update_subscription(df, user_name, plan_type):
-    user_data = df[df["user_name"] == user_name]
-    if not user_data.empty:
-        row = user_data.iloc[0]
-        new_end_date = (datetime.datetime.now() + datetime.timedelta(days=30) if plan_type == "monthly" else datetime.datetime.now() + datetime.timedelta(days=365)).strftime("%Y-%m-%d")
-        df.loc[df["user_name"] == user_name, "plan_type"] = plan_type
-        df.loc[df["user_name"] == user_name, "end_date"] = new_end_date
-        df.loc[df["user_name"] == user_name, "is_active"] = True
-        save_data(df)
-        log_transaction(user_name, "update_subscription", f"Updated to {plan_type} plan")
-        return True
-    return False
-
-# Fungsi untuk membatalkan langganan
-def cancel_subscription(df, user_name):
-    user_data = df[df["user_name"] == user_name]
-    if not user_data.empty:
-        df.loc[df["user_name"] == user_name, "is_active"] = False
-        save_data(df)
-        log_transaction(user_name, "cancel_subscription", "Cancelled subscription")
-        return True
-    return False
 
 def main():
     st.title("Advanced Subscription Management System")
@@ -175,6 +157,13 @@ def main():
     else:
         st.success(f"Logged in as {st.session_state.user_name} ({st.session_state.role})")
 
+        # Menambahkan fitur Logout
+        if st.button("Logout"):
+            st.session_state.is_logged_in = False
+            st.session_state.user_name = None
+            st.session_state.role = None
+            st.success("You have been logged out.")
+
         if st.session_state.role == "User":
             user_name = st.session_state.user_name
             user_data = df[df["user_name"] == user_name]
@@ -182,18 +171,18 @@ def main():
             if not user_data.empty:
                 user_row = user_data.iloc[0]
                 st.write(f"Subscription for {user_name} is {'active' if user_row['is_active'] else 'inactive'} until {user_row['end_date']}.")
-                
+
                 if not check_status(user_row):
                     st.error(f"Your subscription has expired on {user_row['end_date']}. Please renew or change your plan.")
-                
+
                 new_plan = st.radio("Change your plan to:", ("monthly", "yearly"))
-                
+
                 if st.button(f"Change to {new_plan} plan"):
                     if update_subscription(df, user_name, new_plan):
                         st.success(f"Subscription plan for {user_name} updated to {new_plan}.")
                     else:
                         st.error(f"Failed to update the subscription for {user_name}.")
-                
+
                 if st.button("Cancel Subscription"):
                     if cancel_subscription(df, user_name):
                         st.success(f"Subscription for {user_name} has been cancelled.")
@@ -230,16 +219,17 @@ def main():
 
             delete_user_name = st.text_input("Enter the name of the user to delete:")
             if st.button("Delete User"):
-                users = users[users["user_name"] != delete_user_name]
-                save_users(users)
-                st.success(f"User {delete_user_name} deleted.")
-
-        # Logout button
-        if st.button("Logout"):
-            st.session_state.is_logged_in = False
-            st.session_state.user_name = None
-            st.session_state.role = None
-            st.success("You have logged out successfully!")
+                if delete_user_name:
+                    user_to_delete = df[df["user_name"] == delete_user_name]
+                    if not user_to_delete.empty:
+                        df = df[df["user_name"] != delete_user_name]
+                        save_data(df)
+                        log_transaction(st.session_state.user_name, "delete_user", f"Deleted user {delete_user_name}")
+                        st.success(f"User {delete_user_name} has been deleted.")
+                    else:
+                        st.error("User not found.")
+                else:
+                    st.error("Please enter a user name to delete.")
 
 if __name__ == "__main__":
     main()
