@@ -78,90 +78,110 @@ def main():
     df = load_data()
     users = load_users()
 
-    # Autentikasi
-    st.subheader("Authentication")
-    auth_mode = st.radio("Choose mode:", ["Login", "Register"])
+    # Inisialisasi session state untuk login
+    if "is_logged_in" not in st.session_state:
+        st.session_state.is_logged_in = False
+        st.session_state.user_name = None
+        st.session_state.role = None
 
-    user_name = st.text_input("User Name:")
-    password = st.text_input("Password:", type="password")
+    if not st.session_state.is_logged_in:
+        # Autentikasi
+        st.subheader("Authentication")
+        auth_mode = st.radio("Choose mode:", ["Login", "Register"])
 
-    if auth_mode == "Register":
-        role = st.radio("Role:", ["User", "Admin"])
-        if st.button("Register"):
-            success, message = register_user(users, user_name, password, role)
-            if success:
-                st.success(message)
-            else:
-                st.error(message)
+        user_name = st.text_input("User Name:")
+        password = st.text_input("Password:", type="password")
 
-    elif auth_mode == "Login":
-        if st.button("Login"):
-            success, role = login_user(users, user_name, password)
-            if success:
-                st.success(f"Welcome, {user_name}! Role: {role}")
+        if auth_mode == "Register":
+            role = st.radio("Role:", ["User", "Admin"])
+            if st.button("Register"):
+                success, message = register_user(users, user_name, password, role)
+                if success:
+                    st.success(message)
+                else:
+                    st.error(message)
 
-                if role == "User":
-                    user_data = df[df["user_name"] == user_name]
+        elif auth_mode == "Login":
+            if st.button("Login"):
+                success, role = login_user(users, user_name, password)
+                if success:
+                    st.session_state.is_logged_in = True
+                    st.session_state.user_name = user_name
+                    st.session_state.role = role
+                    st.success(f"Welcome, {user_name}! Role: {role}")
+                else:
+                    st.error("Invalid username or password.")
 
-                    if not user_data.empty:
-                        user_row = user_data.iloc[0]
-                        st.write(f"Subscription for {user_name} is {'active' if user_row['is_active'] else 'inactive'} until {user_row['end_date']}.")
+    else:
+        st.success(f"Logged in as {st.session_state.user_name} ({st.session_state.role})")
 
-                        if not check_status(user_row):
-                            st.error(f"Your subscription has expired on {user_row['end_date']}. Please renew or change your plan.")
+        if st.session_state.role == "User":
+            user_name = st.session_state.user_name
+            user_data = df[df["user_name"] == user_name]
 
-                        new_plan = st.radio("Change your plan to:", ("monthly", "yearly"))
+            if not user_data.empty:
+                user_row = user_data.iloc[0]
+                st.write(f"Subscription for {user_name} is {'active' if user_row['is_active'] else 'inactive'} until {user_row['end_date']}.")
 
-                        if st.button(f"Change to {new_plan} plan"):
-                            if update_subscription(df, user_name, new_plan):
-                                st.success(f"Subscription plan for {user_name} updated to {new_plan}.")
-                            else:
-                                st.error(f"Failed to update the subscription for {user_name}.")
+                if not check_status(user_row):
+                    st.error(f"Your subscription has expired on {user_row['end_date']}. Please renew or change your plan.")
 
-                        if st.button("Cancel Subscription"):
-                            if cancel_subscription(df, user_name):
-                                st.success(f"Subscription for {user_name} has been cancelled.")
-                            else:
-                                st.error(f"Failed to cancel the subscription for {user_name}.")
+                new_plan = st.radio("Change your plan to:", ("monthly", "yearly"))
 
+                if st.button(f"Change to {new_plan} plan"):
+                    if update_subscription(df, user_name, new_plan):
+                        st.success(f"Subscription plan for {user_name} updated to {new_plan}.")
                     else:
-                        st.warning(f"No active subscription found for {user_name}.")
+                        st.error(f"Failed to update the subscription for {user_name}.")
 
-                        plan_type = st.radio("Choose your plan type:", ("monthly", "yearly"))
-                        if st.button("Create Subscription"):
-                            new_id = len(df) + 1
-                            new_start_date = datetime.datetime.now().strftime("%Y-%m-%d")
-                            new_end_date = (datetime.datetime.now() + datetime.timedelta(days=30) if plan_type == "monthly" else datetime.datetime.now() + datetime.timedelta(days=365)).strftime("%Y-%m-%d")
-                            new_subscription = pd.DataFrame({
-                                "id": [new_id],
-                                "user_name": [user_name],
-                                "plan_type": [plan_type],
-                                "start_date": [new_start_date],
-                                "end_date": [new_end_date],
-                                "is_active": [True],
-                                "role": ["User"]
-                            })
-                            df = pd.concat([df, new_subscription], ignore_index=True)
-                            save_data(df)
-                            log_transaction(user_name, "create_subscription", f"Created {plan_type} plan")
-                            st.success(f"New subscription created for {user_name} with {plan_type} plan.")
+                if st.button("Cancel Subscription"):
+                    if cancel_subscription(df, user_name):
+                        st.success(f"Subscription for {user_name} has been cancelled.")
+                    else:
+                        st.error(f"Failed to cancel the subscription for {user_name}.")
 
-                elif role == "Admin":
-                    st.subheader("Admin Panel")
-                    st.write(df)
-
-                    analyze_data(df)
-                    notify_expiring_subscriptions(df)
-
-                    delete_user_name = st.text_input("Enter the name of the user to delete:")
-                    if st.button("Delete User"):
-                        if delete_user_name:
-                            df = delete_user(df, delete_user_name)
-                            st.success(f"User {delete_user_name} has been deleted.")
-                        else:
-                            st.error("Please enter a valid user name to delete.")
             else:
-                st.error("Invalid username or password.")
+                st.warning(f"No active subscription found for {user_name}.")
+
+                plan_type = st.radio("Choose your plan type:", ("monthly", "yearly"))
+                if st.button("Create Subscription"):
+                    new_id = len(df) + 1
+                    new_start_date = datetime.datetime.now().strftime("%Y-%m-%d")
+                    new_end_date = (datetime.datetime.now() + datetime.timedelta(days=30) if plan_type == "monthly" else datetime.datetime.now() + datetime.timedelta(days=365)).strftime("%Y-%m-%d")
+                    new_subscription = pd.DataFrame({
+                        "id": [new_id],
+                        "user_name": [user_name],
+                        "plan_type": [plan_type],
+                        "start_date": [new_start_date],
+                        "end_date": [new_end_date],
+                        "is_active": [True],
+                        "role": ["User"]
+                    })
+                    df = pd.concat([df, new_subscription], ignore_index=True)
+                    save_data(df)
+                    log_transaction(user_name, "create_subscription", f"Created {plan_type} plan")
+                    st.success(f"New subscription created for {user_name} with {plan_type} plan.")
+
+        elif st.session_state.role == "Admin":
+            st.subheader("Admin Panel")
+            st.write(df)
+
+            analyze_data(df)
+            notify_expiring_subscriptions(df)
+
+            delete_user_name = st.text_input("Enter the name of the user to delete:")
+            if st.button("Delete User"):
+                if delete_user_name:
+                    df = delete_user(df, delete_user_name)
+                    st.success(f"User {delete_user_name} has been deleted.")
+                else:
+                    st.error("Please enter a valid user name to delete.")
+
+        if st.button("Logout"):
+            st.session_state.is_logged_in = False
+            st.session_state.user_name = None
+            st.session_state.role = None
+            st.success("Logged out successfully.")
 
 if __name__ == "__main__":
     main()
