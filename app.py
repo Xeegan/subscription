@@ -231,5 +231,5 @@ def main():
                 else:
                     st.error("Please enter a user name to delete.")
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     main()
