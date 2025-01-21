@@ -207,4 +207,18 @@ def main():
             analyze_data(df)
 
             delete_user_name = st.text_input("Enter the name of the user to delete:")
-            if st.button("Delete User
+            if st.button("Delete User"):
+                if delete_user_name:
+                    user_to_delete = df[df["user_name"] == delete_user_name]
+                    if not user_to_delete.empty:
+                        df = df[df["user_name"] != delete_user_name]
+                        save_data(df)
+                        log_transaction(st.session_state.user_name, "delete_user", f"Deleted user {delete_user_name}")
+                        st.success(f"User {delete_user_name} has been deleted.")
+                    else:
+                        st.error("User not found.")
+                else:
+                    st.error("Please enter a user name to delete.")
+
+if __name__ == "__main__":
+    main()
