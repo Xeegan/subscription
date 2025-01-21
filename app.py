@@ -30,23 +30,19 @@ def save_users(users):
 # Fungsi untuk mencatat transaksi
 def log_transaction(user_name, action, details):
     try:
-        # Menangani file kosong atau tidak ada
-        try:
-            transactions = pd.read_csv("transactions.csv")
-        except FileNotFoundError:
-            transactions = pd.DataFrame(columns=["id", "user_name", "action", "timestamp", "details"])
+        transactions = pd.read_csv("transactions.csv")
+    except FileNotFoundError:
+        transactions = pd.DataFrame(columns=["id", "user_name", "action", "timestamp", "details"])
 
-        new_transaction = pd.DataFrame({
-            "id": [len(transactions) + 1],
-            "user_name": [user_name],
-            "action": [action],
-            "timestamp": [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
-            "details": [details]
-        })
-        transactions = pd.concat([transactions, new_transaction], ignore_index=True)
-        transactions.to_csv("transactions.csv", index=False)
-    except Exception as e:
-        st.error(f"Error logging transaction: {str(e)}")
+    new_transaction = pd.DataFrame({
+        "id": [len(transactions) + 1],
+        "user_name": [user_name],
+        "action": [action],
+        "timestamp": [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
+        "details": [details]
+    })
+    transactions = pd.concat([transactions, new_transaction], ignore_index=True)
+    transactions.to_csv("transactions.csv", index=False)
 
 # Fungsi untuk hashing password
 def hash_password(password):
@@ -156,13 +152,6 @@ def main():
 
     else:
         st.success(f"Logged in as {st.session_state.user_name} ({st.session_state.role})")
-
-        # Menambahkan fitur Logout
-        if st.button("Logout"):
-            st.session_state.is_logged_in = False
-            st.session_state.user_name = None
-            st.session_state.role = None
-            st.success("You have been logged out.")
 
         if st.session_state.role == "User":
             user_name = st.session_state.user_name
