@@ -75,27 +75,7 @@ def login_user(users, user_name, password):
 def check_status(row):
     today = datetime.datetime.now()
     end_date = datetime.datetime.strptime(row["end_date"], "%Y-%m-%d")
-    if today > end_date:
-        return False
-    return True
-
-# Fungsi untuk membatalkan langganan
-def cancel_subscription(df, user_name):
-    user_data = df[df["user_name"] == user_name]
-    if not user_data.empty:
-        df.loc[df["user_name"] == user_name, "is_active"] = False
-        save_data(df)  # Simpan perubahan ke dalam file
-        log_transaction(user_name, "cancel_subscription", f"Cancelled subscription for {user_name}")
-        return True
-    return False
-
-# Fungsi untuk logout
-def logout_user():
-    # Menghapus session state untuk logout
-    st.session_state.is_logged_in = False
-    st.session_state.user_name = None
-    st.session_state.role = None
-    st.success("You have been logged out.")
+    return today <= end_date
 
 # Fungsi untuk menganalisis data langganan
 def analyze_data(df):
@@ -126,6 +106,30 @@ def analyze_data(df):
         st.write(expiring_soon[["user_name", "plan_type", "end_date"]])
     else:
         st.write("No subscriptions expiring within the next 7 days.")
+
+# Fungsi untuk memperbarui langganan
+def update_subscription(df, user_name, plan_type):
+    user_data = df[df["user_name"] == user_name]
+    if not user_data.empty:
+        row = user_data.iloc[0]
+        new_end_date = (datetime.datetime.now() + datetime.timedelta(days=30) if plan_type == "monthly" else datetime.datetime.now() + datetime.timedelta(days=365)).strftime("%Y-%m-%d")
+        df.loc[df["user_name"] == user_name, "plan_type"] = plan_type
+        df.loc[df["user_name"] == user_name, "end_date"] = new_end_date
+        df.loc[df["user_name"] == user_name, "is_active"] = True
+        save_data(df)
+        log_transaction(user_name, "update_subscription", f"Updated to {plan_type} plan")
+        return True
+    return False
+
+# Fungsi untuk membatalkan langganan
+def cancel_subscription(df, user_name):
+    user_data = df[df["user_name"] == user_name]
+    if not user_data.empty:
+        df.loc[df["user_name"] == user_name, "is_active"] = False
+        save_data(df)
+        log_transaction(user_name, "cancel_subscription", "Cancelled subscription")
+        return True
+    return False
 
 def main():
     st.title("Advanced Subscription Management System")
@@ -178,23 +182,24 @@ def main():
             if not user_data.empty:
                 user_row = user_data.iloc[0]
                 st.write(f"Subscription for {user_name} is {'active' if user_row['is_active'] else 'inactive'} until {user_row['end_date']}.")
+                
                 if not check_status(user_row):
                     st.error(f"Your subscription has expired on {user_row['end_date']}. Please renew or change your plan.")
-
+                
                 new_plan = st.radio("Change your plan to:", ("monthly", "yearly"))
-
+                
                 if st.button(f"Change to {new_plan} plan"):
                     if update_subscription(df, user_name, new_plan):
                         st.success(f"Subscription plan for {user_name} updated to {new_plan}.")
                     else:
                         st.error(f"Failed to update the subscription for {user_name}.")
-
+                
                 if st.button("Cancel Subscription"):
                     if cancel_subscription(df, user_name):
                         st.success(f"Subscription for {user_name} has been cancelled.")
                     else:
                         st.error(f"Failed to cancel the subscription for {user_name}.")
-            
+
             else:
                 st.warning(f"No active subscription found for {user_name}.")
 
@@ -225,16 +230,16 @@ def main():
 
             delete_user_name = st.text_input("Enter the name of the user to delete:")
             if st.button("Delete User"):
-                # Menghapus user berdasarkan nama
-                user_to_delete = df[df["user_name"] == delete_user_name]
-                if not user_to_delete.empty:
-                    df = df[df["user_name"] != delete_user_name]
-                    save_data(df)
-                    log_transaction(delete_user_name, "delete_user", f"Deleted user {delete_user_name}")
-                    st.success(f"User {delete_user_name} has been deleted.")
-                else:
-                    st.error(f"User {delete_user_name} not found.")
+                users = users[users["user_name"] != delete_user_name]
+                save_users(users)
+                st.success(f"User {delete_user_name} deleted.")
 
-        # Fitur logout
+        # Logout button
         if st.button("Logout"):
-            logout_user()
+            st.session_state.is_logged_in = False
+            st.session_state.user_name = None
+            st.session_state.role = None
+            st.success("You have logged out successfully!")
+
+if __name__ == "__main__":
+    main()
