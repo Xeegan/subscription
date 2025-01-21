@@ -79,6 +79,36 @@ def check_status(row):
         return False
     return True
 
+# Fungsi untuk menganalisis data langganan
+def analyze_data(df):
+    st.subheader("Data Analysis")
+    if df.empty:
+        st.warning("No subscription data available.")
+        return
+
+    # Menampilkan statistik dasar
+    st.write("Summary Statistics:")
+    st.write(df.describe(include="all"))
+
+    # Total langganan aktif
+    active_subscriptions = df[df["is_active"]].shape[0]
+    st.write(f"Total Active Subscriptions: {active_subscriptions}")
+
+    # Distribusi tipe langganan
+    st.write("Subscription Plan Distribution:")
+    plan_counts = df["plan_type"].value_counts()
+    st.bar_chart(plan_counts)
+
+    # Langganan yang segera kedaluwarsa
+    today = datetime.datetime.now()
+    df["days_until_expiry"] = pd.to_datetime(df["end_date"]) - today
+    expiring_soon = df[df["days_until_expiry"] <= pd.Timedelta(days=7)]
+    if not expiring_soon.empty:
+        st.write("Subscriptions Expiring Soon:")
+        st.write(expiring_soon[["user_name", "plan_type", "end_date"]])
+    else:
+        st.write("No subscriptions expiring within the next 7 days.")
+
 def main():
     st.title("Advanced Subscription Management System")
 
@@ -175,21 +205,6 @@ def main():
             st.write(df)
 
             analyze_data(df)
-            notify_expiring_subscriptions(df)
 
             delete_user_name = st.text_input("Enter the name of the user to delete:")
-            if st.button("Delete User"):
-                if delete_user_name:
-                    df = delete_user(df, delete_user_name)
-                    st.success(f"User {delete_user_name} has been deleted.")
-                else:
-                    st.error("Please enter a valid user name to delete.")
-
-        if st.button("Logout"):
-            st.session_state.is_logged_in = False
-            st.session_state.user_name = None
-            st.session_state.role = None
-            st.success("Logged out successfully.")
-
-if __name__ == "__main__":
-    main()
+            if st.button("Delete User
