@@ -71,6 +71,14 @@ def login_user(users, user_name, password):
         return True, user.iloc[0]["role"]
     return False, None
 
+# Fungsi untuk memeriksa status langganan
+def check_status(row):
+    today = datetime.datetime.now()
+    end_date = datetime.datetime.strptime(row["end_date"], "%Y-%m-%d")
+    if today > end_date:
+        return False
+    return True
+
 def main():
     st.title("Advanced Subscription Management System")
 
