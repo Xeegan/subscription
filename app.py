@@ -33,7 +33,11 @@ def log_transaction(user_name, action, details):
         # Menangani file kosong atau tidak ada
         try:
             transactions = pd.read_csv("transactions.csv")
+            if transactions.empty:
+                # Jika file kosong, buat dengan kolom yang sesuai
+                transactions = pd.DataFrame(columns=["id", "user_name", "action", "timestamp", "details"])
         except FileNotFoundError:
+            # Jika file tidak ditemukan, buat dengan kolom yang sesuai
             transactions = pd.DataFrame(columns=["id", "user_name", "action", "timestamp", "details"])
 
         new_transaction = pd.DataFrame({
@@ -113,6 +117,12 @@ def analyze_data(df):
     else:
         st.write("No subscriptions expiring within the next 7 days.")
 
+def logout():
+    st.session_state.is_logged_in = False
+    st.session_state.user_name = None
+    st.session_state.role = None
+    st.success("You have been logged out.")
+
 def main():
     st.title("Advanced Subscription Management System")
 
@@ -157,13 +167,6 @@ def main():
     else:
         st.success(f"Logged in as {st.session_state.user_name} ({st.session_state.role})")
 
-        # Menambahkan fitur Logout
-        if st.button("Logout"):
-            st.session_state.is_logged_in = False
-            st.session_state.user_name = None
-            st.session_state.role = None
-            st.success("You have been logged out.")
-
         if st.session_state.role == "User":
             user_name = st.session_state.user_name
             user_data = df[df["user_name"] == user_name]
@@ -171,7 +174,7 @@ def main():
             if not user_data.empty:
                 user_row = user_data.iloc[0]
                 st.write(f"Subscription for {user_name} is {'active' if user_row['is_active'] else 'inactive'} until {user_row['end_date']}.")
-
+                
                 if not check_status(user_row):
                     st.error(f"Your subscription has expired on {user_row['end_date']}. Please renew or change your plan.")
 
@@ -191,7 +194,7 @@ def main():
 
             else:
                 st.warning(f"No active subscription found for {user_name}.")
-
+                
                 plan_type = st.radio("Choose your plan type:", ("monthly", "yearly"))
                 if st.button("Create Subscription"):
                     new_id = len(df) + 1
@@ -211,6 +214,10 @@ def main():
                     log_transaction(user_name, "create_subscription", f"Created {plan_type} plan")
                     st.success(f"New subscription created for {user_name} with {plan_type} plan.")
 
+                # Fitur Logout untuk User
+                if st.button("Logout"):
+                    logout()
+
         elif st.session_state.role == "Admin":
             st.subheader("Admin Panel")
             st.write(df)
@@ -219,17 +226,14 @@ def main():
 
             delete_user_name = st.text_input("Enter the name of the user to delete:")
             if st.button("Delete User"):
-                if delete_user_name:
-                    user_to_delete = df[df["user_name"] == delete_user_name]
-                    if not user_to_delete.empty:
-                        df = df[df["user_name"] != delete_user_name]
-                        save_data(df)
-                        log_transaction(st.session_state.user_name, "delete_user", f"Deleted user {delete_user_name}")
-                        st.success(f"User {delete_user_name} has been deleted.")
-                    else:
-                        st.error("User not found.")
-                else:
-                    st.error("Please enter a user name to delete.")
+                # Hapus user dari dataset dan simpan perubahan
+                users = users[users["user_name"] != delete_user_name]
+                save_users(users)
+                st.success(f"User {delete_user_name} deleted.")
+
+            # Fitur Logout untuk Admin
+            if st.button("Logout"):
+                logout()
 
 if __name__ == "__main__":
     main()
