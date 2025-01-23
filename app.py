@@ -217,14 +217,3 @@ def main():
                 if st.button("Cancel Subscription"):
                     if cancel_subscription(df, user_name):
                         st.success(f"Subscription for {user_name} has been cancelled.")
-                    else:
-                        st.error(f"Failed to cancel the subscription for {user_name}.")
-
-            else:
-                st.warning(f"No active subscription found for {user_name}.")
-
-                plan_type = st.radio("Choose your plan type:", ("monthly", "yearly"))
-
-                if st.button("Create Subscription"):
-                    new_id = len(df) + 1
-                    new_start_date = datetime.datetime.now().strftime("%Y-%m-%d
