@@ -223,11 +223,4 @@ def main():
             else:
                 st.warning(f"No active subscription found for {user_name}.")
 
-                plan_type = st.radio("Choose your plan type:", ("monthly", "yearly"))
-                if st.button("Create Subscription"):
-                    new_id = len(df) + 1
-                    new_start_date = datetime.datetime.now().strftime("%Y-%m-%d")
-                    new_end_date = (datetime.datetime.now() + datetime.timedelta(days=30) if plan_type == "monthly" else datetime.datetime.now() + datetime.timedelta(days=365)).strftime("%Y-%m-%d")
-                    new_subscription = pd.DataFrame({
-                        "id": [new_id],
-                        "user_name
+                plan_type = st.radio("Choose your plan type:", ("monthly", "year
