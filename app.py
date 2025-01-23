@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import datetime
 import hashlib
-import altair as alt
 
 # Fungsi untuk membaca dataset langganan
 def load_data():
@@ -10,6 +9,7 @@ def load_data():
         df = pd.read_csv("subscriptions.csv")
         return df
     except FileNotFoundError:
+        # Jika file tidak ada, buat dataset kosong
         return pd.DataFrame(columns=["id", "user_name", "plan_type", "start_date", "end_date", "is_active", "role"])
 
 # Fungsi untuk membaca dataset pengguna
@@ -18,7 +18,7 @@ def load_users():
         users = pd.read_csv("users.csv")
         return users
     except FileNotFoundError:
-        return pd.DataFrame(columns=["user_name", "password", "role", "email"])
+        return pd.DataFrame(columns=["user_name", "password", "role"])
 
 # Fungsi untuk menyimpan data ke dalam dataset
 def save_data(df):
@@ -30,6 +30,7 @@ def save_users(users):
 # Fungsi untuk mencatat transaksi
 def log_transaction(user_name, action, details):
     try:
+        # Menangani file kosong atau tidak ada
         try:
             transactions = pd.read_csv("transactions.csv")
         except FileNotFoundError:
@@ -52,7 +53,7 @@ def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 # Fungsi untuk registrasi
-def register_user(users, user_name, password, role, email):
+def register_user(users, user_name, password, role):
     if user_name in users["user_name"].values:
         return False, "User already exists."
 
@@ -60,8 +61,7 @@ def register_user(users, user_name, password, role, email):
     new_user = pd.DataFrame({
         "user_name": [user_name],
         "password": [hashed_password],
-        "role": [role],
-        "email": [email]
+        "role": [role]
     })
     users = pd.concat([users, new_user], ignore_index=True)
     save_users(users)
@@ -83,30 +83,6 @@ def check_status(row):
         return False
     return True
 
-# Fungsi untuk memperbarui langganan
-def update_subscription(df, user_name, plan_type):
-    try:
-        today = datetime.datetime.now()
-        new_end_date = (today + datetime.timedelta(days=30) if plan_type == "monthly" else today + datetime.timedelta(days=365)).strftime("%Y-%m-%d")
-        df.loc[df["user_name"] == user_name, ["plan_type", "end_date", "is_active"]] = [plan_type, new_end_date, True]
-        save_data(df)
-        log_transaction(user_name, "update_subscription", f"Updated to {plan_type} plan")
-        return True
-    except Exception as e:
-        st.error(f"Error updating subscription: {str(e)}")
-        return False
-
-# Fungsi untuk membatalkan langganan
-def cancel_subscription(df, user_name):
-    try:
-        df.loc[df["user_name"] == user_name, "is_active"] = False
-        save_data(df)
-        log_transaction(user_name, "cancel_subscription", "Subscription cancelled")
-        return True
-    except Exception as e:
-        st.error(f"Error cancelling subscription: {str(e)}")
-        return False
-
 # Fungsi untuk menganalisis data langganan
 def analyze_data(df):
     st.subheader("Data Analysis")
@@ -125,18 +101,7 @@ def analyze_data(df):
     # Distribusi tipe langganan
     st.write("Subscription Plan Distribution:")
     plan_counts = df["plan_type"].value_counts()
-    chart = alt.Chart(plan_counts.reset_index(), title="Plan Distribution").mark_bar().encode(
-        x=alt.X("index", title="Plan Type"),
-        y=alt.Y("plan_type", title="Count"),
-        color=alt.Color("index", legend=None)
-    )
-    st.altair_chart(chart, use_container_width=True)
-
-    # Analisis pendapatan
-    plan_prices = {"monthly": 10, "yearly": 100}
-    df["revenue"] = df["plan_type"].map(plan_prices)
-    total_revenue = df["revenue"].sum()
-    st.write(f"Total Revenue: ${total_revenue}")
+    st.bar_chart(plan_counts)
 
     # Langganan yang segera kedaluwarsa
     today = datetime.datetime.now()
@@ -148,9 +113,8 @@ def analyze_data(df):
     else:
         st.write("No subscriptions expiring within the next 7 days.")
 
-# Fungsi utama aplikasi
 def main():
-    st.title("Complex Subscription Management System")
+    st.title("Advanced Subscription Management System")
 
     # Load data dari file CSV
     df = load_data()
@@ -171,10 +135,9 @@ def main():
         password = st.text_input("Password:", type="password")
 
         if auth_mode == "Register":
-            email = st.text_input("Email:")
             role = st.radio("Role:", ["User", "Admin"])
             if st.button("Register"):
-                success, message = register_user(users, user_name, password, role, email)
+                success, message = register_user(users, user_name, password, role)
                 if success:
                     st.success(message)
                 else:
@@ -254,9 +217,11 @@ def main():
 
             analyze_data(df)
 
-            # Mengelola pengguna
-            st.subheader("Manage Users")
             delete_user_name = st.text_input("Enter the name of the user to delete:")
             if st.button("Delete User"):
                 if delete_user_name:
-                    user_to_delete = df[df["user_name
+                    user_to_delete = df[df["user_name"] == delete_user_name]
+                    if not user_to_delete.empty:
+                        df = df[df["user_name"] != delete_user_name]
+                        save_data(df)
+                        log_transaction(st.session_state.user_name,
