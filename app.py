@@ -223,4 +223,8 @@ def main():
             else:
                 st.warning(f"No active subscription found for {user_name}.")
 
-                plan_type = st.radio("Choose your plan type:", ("monthly", "year
+                plan_type = st.radio("Choose your plan type:", ("monthly", "yearly"))
+
+                if st.button("Create Subscription"):
+                    new_id = len(df) + 1
+                    new_start_date = datetime.datetime.now().strftime("%Y-%m-%d
