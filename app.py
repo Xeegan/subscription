@@ -152,6 +152,23 @@ def analyze_data(df):
     plan_counts = df["plan_type"].value_counts()
     st.bar_chart(plan_counts)
 
+# Fungsi untuk melihat langganan yang akan berakhir dalam 7 hari
+def view_expiring_subscriptions(df):
+    st.subheader("Subscriptions Expiring in the Next 7 Days")
+    if df.empty:
+        st.warning("No subscription data available.")
+        return
+
+    today = datetime.datetime.now()
+    next_week = today + datetime.timedelta(days=7)
+
+    expiring_subscriptions = df[(pd.to_datetime(df["end_date"]) >= today) & (pd.to_datetime(df["end_date"]) <= next_week) & (df["is_active"])]
+
+    if expiring_subscriptions.empty:
+        st.info("No subscriptions are expiring within the next 7 days.")
+    else:
+        st.write(expiring_subscriptions)
+
 # Fungsi utama
 def main():
     st.title("Advanced Subscription Management System")
@@ -242,6 +259,9 @@ def main():
 
             if st.checkbox("View Customer Database"):
                 st.write(df)
+
+            if st.checkbox("View Subscriptions Expiring in 7 Days"):
+                view_expiring_subscriptions(df)
 
             user_to_delete = st.text_input("Enter the username to delete:")
             if st.button("Delete User"):
