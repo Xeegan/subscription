@@ -101,6 +101,40 @@ def check_status(row):
     end_date = datetime.datetime.strptime(row["end_date"], "%Y-%m-%d")
     return today <= end_date
 
+# Fungsi untuk memperbarui langganan
+def update_subscription(df, user_name, new_plan):
+    today = datetime.datetime.now()
+    end_date = today + datetime.timedelta(days=30 if new_plan == "monthly" else 365)
+
+    if user_name in df["user_name"].values:
+        df.loc[df["user_name"] == user_name, ["plan_type", "start_date", "end_date", "is_active"]] = [
+            new_plan, today.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"), True
+        ]
+    else:
+        new_subscription = pd.DataFrame({
+            "id": [len(df) + 1],
+            "user_name": [user_name],
+            "plan_type": [new_plan],
+            "start_date": [today.strftime("%Y-%m-%d")],
+            "end_date": [end_date.strftime("%Y-%m-%d")],
+            "is_active": [True],
+            "role": ["User"]
+        })
+        df = pd.concat([df, new_subscription], ignore_index=True)
+
+    save_data(df)
+    log_transaction(user_name, "Update Subscription", f"Changed plan to {new_plan}")
+    return True
+
+# Fungsi untuk membatalkan langganan
+def cancel_subscription(df, user_name):
+    if user_name in df["user_name"].values:
+        df.loc[df["user_name"] == user_name, "is_active"] = False
+        save_data(df)
+        log_transaction(user_name, "Cancel Subscription", "Subscription cancelled.")
+        return True
+    return False
+
 # Fungsi untuk menganalisis data langganan
 def analyze_data(df):
     st.subheader("Data Analysis")
@@ -118,15 +152,7 @@ def analyze_data(df):
     plan_counts = df["plan_type"].value_counts()
     st.bar_chart(plan_counts)
 
-    today = datetime.datetime.now()
-    df["days_until_expiry"] = pd.to_datetime(df["end_date"]) - today
-    expiring_soon = df[df["days_until_expiry"] <= pd.Timedelta(days=7)]
-    if not expiring_soon.empty:
-        st.write("Subscriptions Expiring Soon:")
-        st.write(expiring_soon[["user_name", "plan_type", "end_date"]])
-    else:
-        st.write("No subscriptions expiring within the next 7 days.")
-
+# Fungsi utama
 def main():
     st.title("Advanced Subscription Management System")
 
@@ -187,24 +213,44 @@ def main():
             user_name = st.session_state.user_name
             user_data = df[df["user_name"] == user_name]
 
-            if not user_data.empty:
-                user_row = user_data.iloc[0]
-                st.write(f"Subscription for {user_name} is {'active' if user_row['is_active'] else 'inactive'} until {user_row['end_date']}.")
+            if user_data.empty or not user_data.iloc[0]["is_active"]:
+                st.warning("You don't have an active subscription. Please choose a plan.")
+                new_plan = st.radio("Choose a plan:", ("monthly", "yearly"))
 
-                if not check_status(user_row):
-                    st.error(f"Your subscription has expired on {user_row['end_date']}. Please renew or change your plan.")
+                if st.button("Subscribe"):
+                    if update_subscription(df, user_name, new_plan):
+                        st.success(f"Subscription activated with {new_plan} plan.")
+
+            else:
+                user_row = user_data.iloc[0]
+                st.write(f"Subscription active until {user_row['end_date']}.")
 
                 new_plan = st.radio("Change your plan to:", ("monthly", "yearly"))
-
                 if st.button(f"Change to {new_plan} plan"):
                     if update_subscription(df, user_name, new_plan):
-                        st.success(f"Subscription plan for {user_name} updated to {new_plan}.")
-                    else:
-                        st.error(f"Failed to update the subscription for {user_name}.")
+                        st.success(f"Subscription plan updated to {new_plan}.")
 
                 if st.button("Cancel Subscription"):
                     if cancel_subscription(df, user_name):
-                        st.success(f"Subscription for {user_name} has been cancelled.")
+                        st.success("Subscription cancelled.")
+
+        elif st.session_state.role == "Admin":
+            st.subheader("Admin Panel")
+
+            if st.checkbox("View Data Analysis"):
+                analyze_data(df)
+
+            if st.checkbox("View Customer Database"):
+                st.write(df)
+
+            user_to_delete = st.text_input("Enter the username to delete:")
+            if st.button("Delete User"):
+                if user_to_delete in df["user_name"].values:
+                    df = df[df["user_name"] != user_to_delete]
+                    save_data(df)
+                    st.success(f"User {user_to_delete} deleted successfully.")
+                else:
+                    st.error("User not found.")
 
 if __name__ == "__main__":
     main()
