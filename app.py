@@ -10,6 +10,7 @@ def load_data():
         df = pd.read_csv("subscriptions.csv")
         return df
     except FileNotFoundError:
+        # Jika file tidak ada, buat dataset kosong
         return pd.DataFrame(columns=["id", "user_name", "plan_type", "start_date", "end_date", "is_active", "role"])
 
 # Fungsi untuk membaca dataset pengguna
@@ -60,7 +61,7 @@ def send_otp(email):
 # Fungsi untuk registrasi
 def register_user(users, user_name, password, role, email):
     if user_name in users["user_name"].values:
-        return False, "User  already exists."
+        return False, "User already exists."
 
     hashed_password = hash_password(password)
     otp = send_otp(email)
@@ -94,6 +95,12 @@ def login_user(users, user_name, password):
         return False, "Please verify your account using the OTP sent to your email."
     return False, "Invalid username or password."
 
+# Fungsi untuk memeriksa status langganan
+def check_status(row):
+    today = datetime.datetime.now()
+    end_date = datetime.datetime.strptime(row["end_date"], "%Y-%m-%d")
+    return today <= end_date
+
 # Fungsi untuk memperbarui langganan
 def update_subscription(df, user_name, new_plan):
     today = datetime.datetime.now()
@@ -111,7 +118,7 @@ def update_subscription(df, user_name, new_plan):
             "start_date": [today.strftime("%Y-%m-%d")],
             "end_date": [end_date.strftime("%Y-%m-%d")],
             "is_active": [True],
-            "role": ["User "]
+            "role": ["User"]
         })
         df = pd.concat([df, new_subscription], ignore_index=True)
 
@@ -145,22 +152,6 @@ def analyze_data(df):
     plan_counts = df["plan_type"].value_counts()
     st.bar_chart(plan_counts)
 
-# Fungsi untuk melihat langganan yang akan berakhir dalam 7 hari
-def view_subscriptions_ending_soon(df):
-    st.subheader("Subscriptions Ending Soon")
-    if df.empty:
-        st.warning("No subscription data available.")
-        return
-
-    today = datetime.datetime.now()
-    next_week = today + datetime.timedelta(days=7)
-    ending_soon = df[(df["is_active"]) & (pd.to_datetime(df["end_date"]) <= next_week)]
-
-    if ending_soon.empty:
-        st.info("No subscriptions ending within the next 7 days.")
-    else:
-        st.write(ending_soon)
-
 # Fungsi utama
 def main():
     st.title("Advanced Subscription Management System")
@@ -177,11 +168,11 @@ def main():
         st.subheader("Authentication")
         auth_mode = st.radio("Choose mode:", ["Login", "Register"])
 
-        user_name = st.text_input("User  Name:")
+        user_name = st.text_input("User Name:")
         password = st.text_input("Password:", type="password")
 
         if auth_mode == "Register":
-            role = st.radio("Role:", ["User ", "Admin"])
+            role = st.radio("Role:", ["User", "Admin"])
             email = st.text_input("Email:")
             if st.button("Register"):
                 success, message = register_user(users, user_name, password, role, email)
@@ -218,45 +209,48 @@ def main():
             st.session_state.role = None
             st.success("You have been logged out.")
 
-        if st.session_state.role == "User ":
+        if st.session_state.role == "User":
             user_name = st.session_state.user_name
-            
-            st.subheader("User  Dashboard")
-            action = st.selectbox("Choose an action:", ["Check Subscription Status", "Update Subscription", "Cancel Subscription"])
+            user_data = df[df["user_name"] == user_name]
 
-            if action == "Check Subscription Status":
-                if user_name in df["user_name"].values:
-                    subscription = df[df["user_name"] == user_name]
-                    st.write(subscription)
-                else:
-                    st.warning("No subscription found for this user.")
+            if user_data.empty or not user_data.iloc[0]["is_active"]:
+                st.warning("You don't have an active subscription. Please choose a plan.")
+                new_plan = st.radio("Choose a plan:", ("monthly", "yearly"))
 
-            elif action == "Update Subscription":
-                new_plan = st.selectbox("Select new plan:", ["monthly", "yearly"])
-                if st.button("Update Subscription"):
-                    success = update_subscription(df, user_name, new_plan)
-                    if success:
-                        st.success("Subscription updated successfully.")
-                    else:
-                        st.error("Failed to update subscription.")
+                if st.button("Subscribe"):
+                    if update_subscription(df, user_name, new_plan):
+                        st.success(f"Subscription activated with {new_plan} plan.")
 
-            elif action == "Cancel Subscription":
+            else:
+                user_row = user_data.iloc[0]
+                st.write(f"Subscription active until {user_row['end_date']}.")
+
+                new_plan = st.radio("Change your plan to:", ("monthly", "yearly"))
+                if st.button(f"Change to {new_plan} plan"):
+                    if update_subscription(df, user_name, new_plan):
+                        st.success(f"Subscription plan updated to {new_plan}.")
+
                 if st.button("Cancel Subscription"):
-                    success = cancel_subscription(df, user_name)
-                    if success:
-                        st.success("Subscription cancelled successfully.")
-                    else:
-                        st.error("Failed to cancel subscription.")
+                    if cancel_subscription(df, user_name):
+                        st.success("Subscription cancelled.")
 
         elif st.session_state.role == "Admin":
-            st.subheader("Admin Dashboard")
-            admin_action = st.selectbox("Choose an admin action:", ["Analyze Subscription Data", "View Subscriptions Ending Soon"])
+            st.subheader("Admin Panel")
 
-            if admin_action == "Analyze Subscription Data":
+            if st.checkbox("View Data Analysis"):
                 analyze_data(df)
 
-            elif admin_action == "View Subscriptions Ending Soon":
-                view_subscriptions_ending_soon(df)
+            if st.checkbox("View Customer Database"):
+                st.write(df)
+
+            user_to_delete = st.text_input("Enter the username to delete:")
+            if st.button("Delete User"):
+                if user_to_delete in df["user_name"].values:
+                    df = df[df["user_name"] != user_to_delete]
+                    save_data(df)
+                    st.success(f"User {user_to_delete} deleted successfully.")
+                else:
+                    st.error("User not found.")
 
 if __name__ == "__main__":
     main()
