@@ -10,7 +10,6 @@ def load_data():
         df = pd.read_csv("subscriptions.csv")
         return df
     except FileNotFoundError:
-        # Jika file tidak ada, buat dataset kosong
         return pd.DataFrame(columns=["id", "user_name", "plan_type", "start_date", "end_date", "is_active", "role"])
 
 # Fungsi untuk membaca dataset pengguna
@@ -61,7 +60,7 @@ def send_otp(email):
 # Fungsi untuk registrasi
 def register_user(users, user_name, password, role, email):
     if user_name in users["user_name"].values:
-        return False, "User already exists."
+        return False, "User  already exists."
 
     hashed_password = hash_password(password)
     otp = send_otp(email)
@@ -105,6 +104,7 @@ def check_status(row):
 def update_subscription(df, user_name, new_plan):
     today = datetime.datetime.now()
     end_date = today + datetime.timedelta(days=30 if new_plan == "monthly" else 365)
+    price = 79000 if new_plan == "monthly" else 899000
 
     if user_name in df["user_name"].values:
         df.loc[df["user_name"] == user_name, ["plan_type", "start_date", "end_date", "is_active"]] = [
@@ -118,13 +118,26 @@ def update_subscription(df, user_name, new_plan):
             "start_date": [today.strftime("%Y-%m-%d")],
             "end_date": [end_date.strftime("%Y-%m-%d")],
             "is_active": [True],
-            "role": ["User"]
+            "role": ["User "]
         })
         df = pd.concat([df, new_subscription], ignore_index=True)
 
     save_data(df)
-    log_transaction(user_name, "Update Subscription", f"Changed plan to {new_plan}")
+    log_transaction(user_name, "Purchase Subscription", f"Changed plan to {new_plan} for price {price}")
+    send_invoice(user_name, new_plan, price)  # Send invoice to admin
     return True
+
+# Fungsi untuk mengirim invoice ke admin
+def send_invoice(user_name, plan_type, price):
+    admin_email = "admin@example.com"  # Replace with actual admin email
+    invoice_details = f"""
+    Invoice for Subscription Purchase:
+    User: {user_name}
+    Plan Type: {plan_type}
+    Price: {price} IDR
+    Date: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    """
+    st.info(f"Invoice sent to admin: {invoice_details}")
 
 # Fungsi untuk membatalkan langganan
 def cancel_subscription(df, user_name):
@@ -185,11 +198,11 @@ def main():
         st.subheader("Authentication")
         auth_mode = st.radio("Choose mode:", ["Login", "Register"])
 
-        user_name = st.text_input("User Name:")
+        user_name = st.text_input("User  Name:")
         password = st.text_input("Password:", type="password")
 
         if auth_mode == "Register":
-            role = st.radio("Role:", ["User", "Admin"])
+            role = st.radio("Role:", ["User ", "Admin"])
             email = st.text_input("Email:")
             if st.button("Register"):
                 success, message = register_user(users, user_name, password, role, email)
@@ -226,7 +239,7 @@ def main():
             st.session_state.role = None
             st.success("You have been logged out.")
 
-        if st.session_state.role == "User":
+        if st.session_state.role == "User ":
             user_name = st.session_state.user_name
             user_data = df[df["user_name"] == user_name]
 
@@ -234,7 +247,7 @@ def main():
                 st.warning("You don't have an active subscription. Please choose a plan.")
                 new_plan = st.radio("Choose a plan:", ("monthly", "yearly"))
 
-                if st.button("Subscribe"):
+                if st.button("Purchase Subscription"):
                     if update_subscription(df, user_name, new_plan):
                         st.success(f"Subscription activated with {new_plan} plan.")
 
@@ -268,9 +281,9 @@ def main():
                 if user_to_delete in df["user_name"].values:
                     df = df[df["user_name"] != user_to_delete]
                     save_data(df)
-                    st.success(f"User {user_to_delete} deleted successfully.")
+                    st.success(f"User  {user_to_delete} deleted successfully.")
                 else:
-                    st.error("User not found.")
+                    st.error("User  not found.")
 
 if __name__ == "__main__":
     main()
